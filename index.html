@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Eco-Quest — Jogo Educativo</title>
+  <style>
+    :root{ --bg:#0b1020; --card:#0f1724; --accent:#3ddc84; --muted:#9aa4b2; --glass: rgba(255,255,255,0.04);}    
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;color:#e6eef6;background:linear-gradient(180deg,#071029 0%, #081526 60%);display:flex;align-items:center;justify-content:center;min-height:100vh}
+    .container{width:980px;max-width:96%;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:14px;padding:20px;box-shadow:0 10px 30px rgba(2,6,23,0.6)}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+    header h1{margin:0;font-size:20px}
+    .meta{margin-left:auto;color:var(--muted);font-size:14px}
+
+    .layout{display:grid;grid-template-columns:1fr 340px;gap:18px}
+    @media (max-width:900px){.layout{grid-template-columns:1fr}}
+
+    /* game area */
+    .stage{background:linear-gradient(180deg,#082538,#021019);border-radius:10px;padding:14px;min-height:420px;position:relative;overflow:hidden;border:1px solid rgba(255,255,255,0.03)}
+    .hud{display:flex;gap:12px;align-items:center;margin-bottom:10px}
+    .stat{background:var(--glass);padding:8px 10px;border-radius:10px;font-size:14px;color:#cfeee0}
+
+    /* player */
+    .player{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);width:72px;height:72px;border-radius:12px;background:linear-gradient(180deg,#8cf7b8,#2fdc7a);display:flex;align-items:center;justify-content:center;font-size:34px;box-shadow:0 6px 18px rgba(45,220,122,0.12)}
+
+    /* falling items */
+    .item{position:absolute;top:-60px;width:54px;height:54px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:30px;user-select:none}
+    .glass-card{background:rgba(255,255,255,0.03);border-radius:10px;padding:12px;color:#dfffe6}
+
+    /* sidebar */
+    aside{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:14px;border-radius:10px;height:100%}
+    .controls{display:flex;flex-direction:column;gap:8px}
+    button{background:var(--accent);border:none;padding:10px;border-radius:8px;color:#012214;font-weight:700;cursor:pointer}
+    button.secondary{background:#2a3642;color:#d7e6f0;font-weight:600}
+    .small{padding:8px;font-size:13px}
+
+    footer{margin-top:12px;color:var(--muted);font-size:13px}
+
+    /* modal */
+    .modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,0.6);z-index:80}
+    .dialog{background:#071227;padding:18px;border-radius:12px;max-width:540px;width:92%;color:#e3fef0}
+    .facts{margin-top:8px;color:#cfeee0}
+
+    /* tiny animations */
+    .pop{animation:pop 0.28s ease}
+    @keyframes pop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36'><rect rx='8' width='36' height='36' fill='%233ddc84'/></svg>" alt="logo" style="width:36px;height:36px;border-radius:8px;">
+      <h1>Eco-Quest — Jogo educativo sobre reciclagem</h1>
+      <div class="meta">💡 Aprenda enquanto joga</div>
+    </header>
+
+    <div class="layout">
+      <main>
+        <div class="stage" id="stage">
+          <div class="hud">
+            <div class="stat">Pontuação: <span id="score">0</span></div>
+            <div class="stat">Tempo: <span id="time">60</span>s</div>
+            <div class="stat">Coletados: <span id="collected">0</span></div>
+            <div class="stat">Nível: <span id="level">1</span></div>
+          </div>
+
+          <div id="player" class="player" aria-label="personagem">🚴</div>
+
+          <!-- items will be injected here -->
+        </div>
+
+        <footer>
+          Use as setas ◀ ▶ para mover. Colete itens recicláveis e evite lixo perigoso. Ao final, ganhe um fato ambiental!
+        </footer>
+      </main>
+
+      <aside>
+        <div class="glass-card">
+          <strong>Objetivo</strong>
+          <p class="facts">Colete o máximo de materiais recicláveis antes do tempo acabar. Cada item tem pontuação diferente — alguns valem mais!</p>
+        </div>
+
+        <div style="height:10px"></div>
+        <div class="controls">
+          <button id="startBtn">▶ Iniciar jogo</button>
+          <button id="pauseBtn" class="secondary small">⏸ Pausar</button>
+          <button id="resetBtn" class="secondary small">🔁 Reiniciar</button>
+        </div>
+
+        <div style="height:10px"></div>
+        <div class="glass-card">
+          <strong>Itens</strong>
+          <ul style="margin:6px 0 0 18px;color:#cfeee0">
+            <li>♻️ Garrafa (plástico) — +10</li>
+            <li>🧴 Lata — +12</li>
+            <li>📦 Papelão — +8</li>
+            <li>☣️ Perigoso (não coletar) — -15</li>
+          </ul>
+        </div>
+
+        <div style="height:10px"></div>
+        <div class="glass-card">
+          <strong>Melhore</strong>
+          <p class="facts">Quer transformar isto em projeto do GitHub? Posso te ajudar a adicionar leaderboard, gravação no localStorage e tela de créditos.</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- modal de fim -->
+  <template id="endTpl">
+    <div class="modal" id="endModal">
+      <div class="dialog pop">
+        <h3>Fim de jogo 🎉</h3>
+        <p>Você fez <strong id="finalScore">0</strong> pontos e coletou <strong id="finalCollected">0</strong> itens.</p>
+        <p class="facts" id="ecoFact">Curiosidade ambiental aqui.</p>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button id="playAgain">Jogar novamente</button>
+          <button id="closeModal" class="secondary">Fechar</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    // --- Configurações do jogo ---
+    const CONFIG = {
+      duration: 60, // segundos
+      spawnInterval: 900, // ms
+      levelUpAt: 40, // pontos para subir de nível (aumenta dificuldade)
+    }
+
+    // --- Estado ---
+    const state = { score:0, time:CONFIG.duration, collected:0, running:false, level:1, spawnTimer:null, countdown:null }
+
+    // --- Elementos ---
+    const stage = document.getElementById('stage')
+    const player = document.getElementById('player')
+    const scoreEl = document.getElementById('score')
+    const timeEl = document.getElementById('time')
+    const collectedEl = document.getElementById('collected')
+    const levelEl = document.getElementById('level')
+
+    const startBtn = document.getElementById('startBtn')
+    const pauseBtn = document.getElementById('pauseBtn')
+    const resetBtn = document.getElementById('resetBtn')
+
+    // itens possíveis: emoji, tipo, valor
+    const ITEMS = [
+      {emoji:'♻️', type:'recic', points:10},
+      {emoji:'🧴', type:'recic', points:12},
+      {emoji:'📦', type:'recic', points:8},
+      {emoji:'☣️', type:'bad', points:-15}
+    ]
+
+    // fatos aleatorios para mostrar no fim
+    const FACTS = [
+      'Você sabia? Plástico leva centenas de anos para se decompor.',
+      'Dica: Reciclar uma lata de alumínio economiza energia suficiente para uma lâmpada acesa por 3 horas.',
+      'Pilha e eletrônico não vão no lixo comum — entregue em pontos de coleta.',
+      'Reduzir é o primeiro passo: escolha produtos com menos embalagem.'
+    ]
+
+    // --- Funções utilitárias ---
+    function rand(min,max){return Math.floor(Math.random()*(max-min+1))+min}
+
+    function updateHUD(){ scoreEl.textContent = state.score; timeEl.textContent = state.time; collectedEl.textContent = state.collected; levelEl.textContent = state.level }
+
+    // spawn item
+    function spawnItem(){
+      const data = ITEMS[rand(0, ITEMS.length-1)]
+      const el = document.createElement('div')
+      el.className = 'item pop'
+      el.textContent = data.emoji
+      el.dataset.type = data.type
+      el.dataset.points = data.points
+      const size = rand(44,64)
+      el.style.width = size+'px'
+      el.style.height = size+'px'
+      const left = rand(12, stage.clientWidth - size - 12)
+      el.style.left = left+'px'
+      el.style.top = '-80px'
+      stage.appendChild(el)
+
+      // velocidade based on level
+      const speed = 1 + state.level*0.25 + Math.random()*1.2
+      // animate using requestAnimationFrame
+      let y = -80
+      const id = setInterval(()=>{
+        y += speed*3
+        el.style.top = y+'px'
+        // collision check
+        if(checkCollision(el, player)){
+          collect(el)
+          clearInterval(id)
+          el.remove()
+        }
+        // remove when out
+        if(y > stage.clientHeight + 80){ clearInterval(id); if(el.parentElement) el.remove() }
+      }, 20)
+    }
+
+    function checkCollision(a,b){
+      const ra = a.getBoundingClientRect()
+      const rb = b.getBoundingClientRect()
+      return !(ra.right < rb.left || ra.left > rb.right || ra.bottom < rb.top || ra.top > rb.bottom)
+    }
+
+    function collect(el){
+      const pts = Number(el.dataset.points || 0)
+      state.score += pts
+      if(pts>0) state.collected++
+      // penalize for bad items
+      if(pts<0){ state.score += pts } // already negative
+      // level up check
+      if(state.score >= state.level * CONFIG.levelUpAt){ state.level++; }
+      updateHUD()
+      // tiny pop effect
+      const plus = document.createElement('div')
+      plus.textContent = (pts>0? '+'+pts : pts)
+      plus.style.position = 'absolute'
+      plus.style.left = el.style.left
+      plus.style.top = el.style.top
+      plus.style.fontSize = '16px'
+      plus.style.pointerEvents = 'none'
+      plus.className = 'pop'
+      stage.appendChild(plus)
+      setTimeout(()=>{ plus.remove() },700)
+    }
+
+    // game loop control
+    function startGame(){
+      if(state.running) return
+      state.running = true
+      startBtn.textContent = '▶ Em jogo'
+      // spawn
+      state.spawnTimer = setInterval(spawnItem, Math.max(300, CONFIG.spawnInterval - state.level*60))
+      // countdown
+      state.countdown = setInterval(()=>{
+        state.time--
+        if(state.time <= 0){ endGame() }
+        updateHUD()
+      },1000)
+    }
+    function pauseGame(){
+      state.running = false
+      startBtn.textContent = '▶ Continuar'
+      clearInterval(state.spawnTimer)
+      clearInterval(state.countdown)
+    }
+    function resetGame(){
+      pauseGame()
+      // clear items
+      document.querySelectorAll('.item').forEach(n=>n.remove())
+      state.score = 0; state.time = CONFIG.duration; state.collected = 0; state.level = 1
+      updateHUD()
+      startBtn.textContent = '▶ Iniciar jogo'
+    }
+
+    function endGame(){
+      pauseGame()
+      // show modal
+      const tpl = document.getElementById('endTpl')
+      const clone = tpl.content.cloneNode(true)
+      clone.querySelector('#finalScore').textContent = state.score
+      clone.querySelector('#finalCollected').textContent = state.collected
+      clone.querySelector('#ecoFact').textContent = FACTS[rand(0, FACTS.length-1)]
+      document.body.appendChild(clone)
+
+      document.getElementById('playAgain').onclick = ()=>{ document.getElementById('endModal').remove(); resetGame(); startGame() }
+      document.getElementById('closeModal').onclick = ()=>{ document.getElementById('endModal').remove() }
+    }
+
+    // player control
+    let playerX = stage.clientWidth/2
+    function movePlayerTo(x){
+      const pad = 18
+      playerX = Math.max(pad, Math.min(stage.clientWidth - player.clientWidth - pad, x))
+      player.style.left = playerX + 'px'
+    }
+
+    // keyboard
+    document.addEventListener('keydown', (e)=>{
+      if(!state.running && e.key==='ArrowLeft' || !state.running && e.key==='ArrowRight') return
+      if(e.key === 'ArrowLeft') movePlayerBy(-28)
+      if(e.key === 'ArrowRight') movePlayerBy(28)
+      if(e.key === ' '){ if(state.running) pauseGame(); else startGame() }
+    })
+    function movePlayerBy(dx){ movePlayerTo(player.getBoundingClientRect().left + dx) }
+
+    // touch for mobile: tap left/right
+    stage.addEventListener('click', (ev)=>{
+      const rect = stage.getBoundingClientRect()
+      const x = ev.clientX - rect.left
+      if(x < rect.width/2) movePlayerBy(-60); else movePlayerBy(60)
+    })
+
+    // buttons
+    startBtn.addEventListener('click', ()=>{ startGame() })
+    pauseBtn.addEventListener('click', ()=>{ pauseGame() })
+    resetBtn.addEventListener('click', ()=>{ resetGame() })
+
+    // responsive: recompute player center on resize
+    window.addEventListener('resize', ()=>{ movePlayerTo(stage.clientWidth/2 - player.clientWidth/2) })
+
+    // init
+    resetGame()
+    movePlayerTo(stage.clientWidth/2 - player.clientWidth/2)
+
+    // accessibility: focus on stage for keyboard
+    stage.tabIndex = 0
+
+    // small polish: spawn a few items before start to show preview
+    setTimeout(()=>{ for(let i=0;i<3;i++){ setTimeout(spawnItem, i*400) } }, 400)
+
+  </script>
+</body>
+</html>
